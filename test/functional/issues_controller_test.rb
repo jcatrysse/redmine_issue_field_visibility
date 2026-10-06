@@ -1,4 +1,5 @@
 require File.expand_path('../../test_helper', __FILE__)
+require 'zlib'
 
 class RedmineIssueFieldVisibilityIssuesControllerTest < Redmine::ControllerTest
   fixtures :projects,
