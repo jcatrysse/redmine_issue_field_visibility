@@ -75,4 +75,30 @@ class IssueValuesTest < ActiveSupport::TestCase
     assert_equal issue, issue.reload(lock: true)
     assert_nothing_raised { Issue.transaction { issue.lock! } }
   end
+
+  if Issue.method_defined?(:webhook_payload)
+    test "webhook payload does not contain fields hidden for the webhook user" do
+      with_hidden_fields(%w(estimated_hours assigned_to_id start_date)) do
+        issue = Issue.find 1
+        User.current = User.find 1
+        issue.init_journal(User.current)
+        issue.estimated_hours = 20
+        issue.save!
+
+        payload = WebhookPayload.new('issue.updated', issue, @user).to_h
+        data = payload.dig(:data, :issue)
+        assert_equal 'Cannot print recipes', data[:subject]
+        assert_nil data[:estimated_hours]
+        assert_nil data[:total_estimated_hours]
+        assert_nil data[:start_date]
+        assert_nil data[:assigned_to]
+        assert_equal [], payload.dig(:data, :journal, :details).map { |d| d[:prop_key] } & %w(estimated_hours)
+
+        payload = WebhookPayload.new('issue.updated', issue, User.find(1)).to_h
+        assert_equal 20.0, payload.dig(:data, :issue, :estimated_hours)
+        assert_equal 3, payload.dig(:data, :issue, :assigned_to, :id)
+        assert_equal 20.0, issue.estimated_hours
+      end
+    end
+  end
 end

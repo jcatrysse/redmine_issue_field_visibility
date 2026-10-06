@@ -16,6 +16,11 @@ module RedmineIssueFieldVisibility
             alias_method :estimated_remaining_hours_without_ifv, :estimated_remaining_hours
             alias_method :estimated_remaining_hours, :estimated_remaining_hours_with_ifv
           end
+          # webhooks, Redmine 7
+          if method_defined?(:webhook_payload)
+            alias_method :webhook_payload_without_ifv, :webhook_payload
+            alias_method :webhook_payload, :webhook_payload_with_ifv
+          end
 
           # Attribute and association readers of the hideable fields answer
           # nil inside RedmineIssueFieldVisibility.hide_values. Rails generates
@@ -79,6 +84,14 @@ module RedmineIssueFieldVisibility
 
         def estimated_remaining_hours_with_ifv
           estimated_remaining_hours_without_ifv unless hidden_core_field_value?('estimated_hours')
+        end
+
+        # The payload is rendered from the issue API template as the webhook
+        # user, so it hides what the API hides for that user.
+        def webhook_payload_with_ifv(*args)
+          RedmineIssueFieldVisibility.hide_values do
+            webhook_payload_without_ifv(*args)
+          end
         end
 
         # WARNING: if changed here change in journal_patch too
