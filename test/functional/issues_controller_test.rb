@@ -68,7 +68,10 @@ class RedmineIssueFieldVisibilityIssuesControllerTest < Redmine::ControllerTest
       assert_select '.query-totals .total-for-estimated-remaining-hours'
     end
 
-    with_settings('plugin_redmine_issue_field_visibility' => {
+    # a Symbol key, like Setting.plugin_redmine_issue_field_visibility reads it
+    # (Setting caches per key as given; on MariaDB the cache check by
+    # updated_on does not see a change within the same second)
+    with_settings(plugin_redmine_issue_field_visibility: {
       'hiddenfields' => {
         '1' => {
           'estimated_hours' => '1'
