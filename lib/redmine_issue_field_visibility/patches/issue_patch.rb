@@ -36,8 +36,8 @@ module RedmineIssueFieldVisibility
           @hidden_core_fields[user] ||= RedmineIssueFieldVisibility::hidden_core_fields user, project
         end
 
-        def reload_with_ifv
-          reload_without_ifv.tap { @hidden_core_fields = nil }
+        def reload_with_ifv(*args)
+          reload_without_ifv(*args).tap { @hidden_core_fields = nil }
         end
 
         def with_hidden_core_fields_for_user(user, &block)
