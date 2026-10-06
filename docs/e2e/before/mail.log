@@ -1,0 +1,5 @@
+mails: admin@example.net, manager@example.net, reporter@example.net
+manager lines:  ["Estimated time changed from 6:00 h to 8:00 h","* Status: New","* Priority: Normal","* Assignee: Manager E2E","* Category: E2E category","* Start date: 2026-10-06","* Due date: 2026-10-13"]
+reporter lines: ["* Status: New","* Priority: Normal"]
+assignee header: manager "X-Redmine-Issue-Assignee: manager", reporter "X-Redmine-Issue-Assignee: manager"
+description in the mail: manager true, reporter true
