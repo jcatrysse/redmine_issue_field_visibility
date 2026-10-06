@@ -37,6 +37,8 @@ module RedmineIssueFieldVisibility
                                     )
                                     if fields.include?("estimated_hours")
                                       fields << "total_estimated_hours"
+                                      # column and total since Redmine 6
+                                      fields << "estimated_remaining_hours"
                                     end
                                     fields
                                   end

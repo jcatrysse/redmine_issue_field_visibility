@@ -58,6 +58,31 @@ class RedmineIssueFieldVisibilityIssuesControllerTest < Redmine::ControllerTest
     end
   end
 
+  def test_index_should_not_display_estimated_remaining_hours_when_estimated_hours_is_hidden
+    params = { project_id: @issue.project.identifier, set_filter: 1,
+               c: %w(subject estimated_remaining_hours), t: %w(estimated_remaining_hours) }
+    if IssueQuery.available_columns.any? { |c| c.name == :estimated_remaining_hours }
+      get :index, params: params
+      assert_select 'option[value=estimated_remaining_hours]'
+      assert_select 'td.estimated_remaining_hours', /12/
+      assert_select '.query-totals .total-for-estimated-remaining-hours'
+    end
+
+    with_settings('plugin_redmine_issue_field_visibility' => {
+      'hiddenfields' => {
+        '1' => {
+          'estimated_hours' => '1'
+        }
+      }
+    }) do
+      get :index, params: params
+      assert_response :success
+      assert_select 'option[value=estimated_remaining_hours]', 0
+      assert_select 'td.estimated_remaining_hours', 0
+      assert_select '.query-totals .total-for-estimated-remaining-hours', 0
+    end
+  end
+
   def test_show_should_display_not_hidden_issue_fields
     assert_equal %w(), @issue.hidden_core_fields
     assert @issue.safe_attribute_names.include?('estimated_hours')
