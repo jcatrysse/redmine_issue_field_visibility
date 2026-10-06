@@ -33,7 +33,7 @@ module RedmineIssueFieldVisibility
         def hidden_core_fields
           user = @user_for_hidden_core_fields || User.current
           @hidden_core_fields ||= {}
-          @hidden_core_fields[user] ||= RedmineIssueFieldVisibility::hidden_core_fields user, project
+          @hidden_core_fields[[user, project_id]] ||= RedmineIssueFieldVisibility::hidden_core_fields user, project
         end
 
         def reload_with_ifv(*args)

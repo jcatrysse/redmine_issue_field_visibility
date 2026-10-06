@@ -44,4 +44,21 @@ class HiddenCoreFieldsTest < ActiveSupport::TestCase
       assert !@issue.safe_attribute_names.include?('estimated_hours')
     end
   end
+
+  test "should hide fields for the project the issue is moved into" do
+    with_settings('plugin_redmine_issue_field_visibility' => {
+      'hiddenfields' => {
+        '1' => {
+          'estimated_hours' => '1'
+        }
+      }
+    }) do
+      issue = Issue.new
+      # without a project: the roles of every membership, Developer hides nothing
+      assert_equal [], issue.hidden_core_fields
+      issue.project = Project.find 1
+      assert_equal %w(estimated_hours), issue.hidden_core_fields
+      assert !issue.safe_attribute_names.include?('estimated_hours')
+    end
+  end
 end
