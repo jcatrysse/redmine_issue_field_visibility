@@ -43,12 +43,11 @@ module RedmineIssueFieldVisibility
       end
 
       def visible_fixed_issues_with_ifv
-        @visible_fixed_issues_with_ifv ||=
-          if estimated_hours_hidden_by_ifv?
-            visible_fixed_issues_without_ifv.extending(HiddenEstimatedHours)
-          else
-            visible_fixed_issues_without_ifv
-          end
+        if estimated_hours_hidden_by_ifv?
+          @visible_fixed_issues_with_ifv ||= visible_fixed_issues_without_ifv.extending(HiddenEstimatedHours)
+        else
+          visible_fixed_issues_without_ifv
+        end
       end
 
       def estimated_hours_hidden_by_ifv?

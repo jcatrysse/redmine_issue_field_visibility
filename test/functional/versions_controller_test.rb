@@ -68,4 +68,13 @@ class RedmineIssueFieldVisibilityVersionsControllerTest < Redmine::ControllerTes
       end
     end
   end
+
+  def test_version_totals_should_follow_the_current_user
+    with_settings(HIDE_ESTIMATED_HOURS) do
+      version = Version.find @version.id
+      assert_equal 0, version.visible_fixed_issues.estimated_hours
+      User.current = User.find 1
+      assert_equal 12.0, version.visible_fixed_issues.estimated_hours
+    end
+  end
 end
