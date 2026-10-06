@@ -1,0 +1,14 @@
+GET /issues/1.json as manager: HTTP 200
+  manager: assigned_to="Manager E2E" category="E2E category" start_date="2026-10-06" due_date="2026-10-13" estimated_hours=6 total_estimated_hours=6 description="Secret description of the assigned issue."
+GET /issues/1.json as reporter: HTTP 200
+  reporter: assigned_to=undefined category=undefined start_date=null due_date=null estimated_hours=null total_estimated_hours=null description=null; priority=Normal, fixed_version=E2E 1.0
+GET /projects/e2e-project/issues.json?status_id=*&limit=100 as reporter: HTTP 200
+  reporter list: 9 issues, 0 with a hidden field
+GET /issues/1.xml as reporter: HTTP 200
+  reporter xml: <estimated_hours/> no assigned_to
+PUT /issues/1.json as reporter {notes, estimated_hours: 99, assigned_to_id: ""}: HTTP 204
+GET /issues/1.json as manager: HTTP 200
+  manager afterwards: estimated_hours=6, assigned_to=Manager E2E
+GET /issues/1.json as admin: HTTP 200
+GET /projects/e2e-private/issues.json as outsider: HTTP 403
+GET /projects/e2e-private/issues.json as anonymous: HTTP 401
