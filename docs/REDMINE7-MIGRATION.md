@@ -18,16 +18,35 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Plugin id | `redmine_issue_field_visibility` |
 | GEOxyz runs today | `master` |
 | Upstream | planio-gmbh/redmine_issue_field_visibility (master @ a1ff152, 2022-06-27, voorouder van master) |
-| Runs on Redmine 7 as is | DEELS |
+| Runs on Redmine 7 as is | DEELS (before this branch); on this branch: JA |
 | Upstream sync | UPSTREAM DOOD |
 | After sync | n.v.t. |
+| State of this branch (2026-10-06) | work list done; tests green on 7.0-stable-GEOxyz PostgreSQL 16 and MariaDB 10.11 (33 runs, 195 assertions each) and on 5.1-stable (32 runs, 160 assertions); e2e 7 scenarios + smoke + core green on both databases; OpenAI review: last round no findings |
 | Complexity (1 trivial .. 5 rewrite) | 3 |
 | Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz + latest 7.0-stable), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16 and MariaDB 10.11 |
 | Branch head when this file was written | `975af11` |
 
 ## Already on this branch
 
-- nothing: the branch equals the branch GEOxyz runs today.
+Commits after the plan (`9367e5f`), oldest first:
+
+| commit | what |
+|---|---|
+| `b8e78f0` | estimated remaining time column and total hidden with estimated time (item 1/4) |
+| `34f7b19` | estimated and remaining time 0 on the version page and version API (`visible_fixed_issues`), `Version#estimated_remaining_hours` (item 1/4) |
+| `facda17` | `Issue#reload(*args)`: `issue.lock!` raised ArgumentError with the plugin |
+| `33aa8c5` | hidden fields cached per user **and project** (a new issue whose project comes from the params was not hidden). Note: this commit also carries `application_controller_patch.rb` and `test/integration/api_test.rb`, which belong to `ebf665a` (init.rb only requires the patch from `ebf665a`); pushed, so not rewritten |
+| `ebf665a` | REST API leaves hidden fields out (item 2/5): readers guarded inside `RedmineIssueFieldVisibility.hide_values`, API rendering wrapped |
+| `eb4fba8` | webhook payloads leave hidden fields out (item 3/6) |
+| `84dd3f7` | test for GEOxyz `4139400` |
+| `8e71a85` | hidden description left out of the issue page, PDF and Atom (all IssuesController rendering inside `hide_values`) |
+| `98cbb36` | issue mails: `X-Redmine-Issue-Assignee` header and description follow the recipient |
+| `31b2158` | test independent of the MariaDB clock (Setting cache) |
+| `ffe1644` | version 1.2.0, README, CHANGELOG |
+| `8f3aed3` | OpenAI finding: zero-estimate version relation not kept for a user who sees estimates |
+| `b2fe8a5`, `b7e3ad8` | PDF test (answers an OpenAI finding), `require 'zlib'` |
+| `308f8e5`, `6c55afa`, `9389227`, `dd49db6` | e2e scenarios and evidence: PostgreSQL, MariaDB, before (5.1), final PostgreSQL run |
+| `bf9a550`, `0b94037`, `6657698` | OpenAI reviews with resolutions |
 
 ## Work list for the migration session
 
@@ -35,20 +54,20 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 
 **Priority items**
 
-1. Hide estimated_remaining_hours (column, total, version page) together with estimated_hours.
-2. Make the getter wrappers work on Redmine 7 (they are not installed today, so the REST API returns hidden values).
-3. Redmine 7 webhooks (#29664) send the core issue API payload (app/views/issues/show.api.rsb, rendered as the webhook owner) and bypass plugin hooks and patches on controllers/views. Check whether this plugin changes what an issue shows, hides or adds, and make webhook payloads consistent with that.
+1. DONE (`b8e78f0`, `34f7b19`, `8f3aed3`) Hide estimated_remaining_hours (column, total, version page) together with estimated_hours.
+2. DONE (`ebf665a`, `33aa8c5`) Make the getter wrappers work on Redmine 7 (they are not installed today, so the REST API returns hidden values). Measured: they were not installed on 5.1 either (test and production/eager load, plugin alone), so GEOxyz has run without them since `cd3554e` (2023). Redesigned as readers that answer nil only inside `RedmineIssueFieldVisibility.hide_values`, used while rendering for a user; see open question 1.
+3. DONE (`eb4fba8`) Redmine 7 webhooks (#29664) send the core issue API payload (app/views/issues/show.api.rsb, rendered as the webhook owner) and bypass plugin hooks and patches on controllers/views. Check whether this plugin changes what an issue shows, hides or adds, and make webhook payloads consistent with that. `Issue#webhook_payload` renders inside `hide_values`; journal details already went through `Journal#visible_details(user)`. Proven in `test/unit/issue_values_test.rb` and `test/e2e/webhooks.mjs` (real POSTs to a receiver).
 
 **Open items from the analysis** (Dutch; where they conflict with a decision or a priority item above, those win)
 
-4. issue_query_patch.rb: estimated_remaining_hours mee verbergen (kolom, totaal) + Version#estimated_remaining_hours
-5. issue_patch.rb:15-20 getter-wrappers worden op R7 niet geinstalleerd (method_defined? false bij init) -> REST API/webhooks tonen verborgen velden; herontwerpen (prepend/define_method of na define_attribute_methods)
-6. Webhooks (7.0) renderen show.api.rsb -> zelfde lek
+4. DONE, see 1.
+5. DONE, see 2 (define_method on Issue calling super into the generated attribute/association methods; no prepend, so it composes with other plugins' alias chains).
+6. DONE, see 3.
 
 **Checks**
 
-7. Run the plugin's whole test suite on Redmine 7.0-stable-GEOxyz with PostgreSQL AND MariaDB, and once on 5.1-stable if the branch is meant to stay 5.1-compatible.
-8. Verify every feature of the plugin by hand on a running Redmine 7 (screenshots).
+7. DONE. See "Results".
+8. DONE. See "Inventory of functions" and "Results".
 
 ## GEOxyz changes to review or re-apply
 
@@ -60,11 +79,81 @@ These GEOxyz commits are on the branch GEOxyz runs today and therefore on this b
 | `e0c7abf` | 2023-08-07 | Correction on wrong file move on my side |
 | `cd3554e` | 2023-08-07 | * Resolved issue: `SystemStackError (stack level too deep)`     Converted all methods to use `alias_method` * Removal of `setup` method * Renamed `History.txt` to `CHANGELOG.md` |
 
+Verdicts:
+
+- `4139400` KEEP. Still needed on Redmine 7: the project list as a list renders its rows through `QueriesHelper#column_content`. Test `test/functional/projects_controller_test.rb` (`84dd3f7`) raises `NoMethodError hidden_core_field? for Project` without it; e2e `issue-list-project-list.png`.
+- `e0c7abf` KEEP. File move only.
+- `cd3554e` KEEP, partly REWRITTEN. `alias_method` instead of upstream's `prepend` stays (it fixed a SystemStackError with other plugins' alias chains, and the overlapping GEOxyz plugins use alias chains or prepend on other methods). Its getter part was silently inactive (`Issue.method_defined?(field)` is false when init.rb runs): rewritten in `ebf665a` without `prepend` (define_method on Issue with super, alias where Issue defines the reader itself) and scoped to rendering, see open question 1.
+
 ## After the upgrade (production)
 
 Actions the person doing the upgrade must take, or know about, for this plugin:
 
-- None known. Add here what the session finds.
+- No migrations, no new settings, no new gems; the plugin settings are kept as they are. Version is 1.2.0.
+- Behaviour change for users whose roles hide fields (intended, these were leaks on 5.1 as well, see `docs/e2e/before/`):
+  REST API responses (`/issues.json|xml`, `/issues/:id.json|xml`, the create response, `/versions/:id.json`) and Redmine 7 webhook payloads now return `null` (or leave out the `assigned_to`, `category`, `fixed_version`, `priority` objects) for fields hidden for the API user or the webhook owner. **Check the roles of integration accounts** (API keys, webhook owners): if one of their roles hides a field an integration needs, give the account a role that does not hide it (an admin sees everything).
+- Issue mails no longer carry `X-Redmine-Issue-Assignee` or the description for recipients who have these fields hidden: mail filters that sort on that header for such users stop matching.
+- The version page shows 0:00 for estimated and remaining time to users with estimated time hidden.
+
+## Inventory of functions
+
+Seed (`test/e2e/seed.rb`): role Reporter hides assignee, category, start and due date, estimated time and description; issue #1 has all of them set, a version, a journal that changed the estimate; role E2E full (manager) hides nothing. Screenshots in `docs/e2e/` (PostgreSQL), `docs/e2e/mariadb/` (same set on MariaDB), `docs/e2e/before/` (Redmine 5.1 with master @ 4139400).
+
+| function | how a user reaches it | scenario | screenshots |
+|---|---|---|---|
+| Settings matrix (fields x roles), save, admin only | Administration > Plugins > Configure (`/settings/plugin/redmine_issue_field_visibility`) | `settings.mjs` | `settings-plugin-list`, `settings-matrix`, `settings-saved`, `settings-priority-hidden`, `settings-refused` (403 for manager, reporter, outsider; anonymous to login) |
+| Issue page: hidden attributes, description, history details | `/issues/:id` | `issue-page.mjs` | `issue-page-manager`, `issue-page-reporter`, `issue-page-outsider` (Non member hides nothing) |
+| Issue forms: hidden fields not shown and not settable (forged POST ignored) | new / edit issue | `issue-page.mjs` | `issue-page-manager-form`, `issue-page-reporter-new`, `issue-page-reporter-created`, `issue-page-forged-ignored` |
+| Issue list: columns, filters, totals (incl. remaining time), group by, CSV, filter probing via URL | `/projects/:id/issues` | `issue-list.mjs` | `issue-list-manager`, `issue-list-reporter`, `issue-list-reporter-options`, `issue-list-reporter-probe`; CSV header as reporter: `#,Subject` |
+| Project list as list (GEOxyz 4139400) | `/projects?display_type=list` | `issue-list.mjs` | `issue-list-project-list` |
+| Version page and version API: estimated / remaining time | Roadmap > version, `/versions/:id.json` | `version-page.mjs` | `version-page-manager` (6:00), `version-page-reporter` (0:00), `version-page-reporter-roadmap`; API: reporter 0, manager 6 |
+| REST API: issue show, list, xml, update keeps hidden values, refusals | `/issues/1.json` etc. with basic auth | `api.mjs` (log `docs/e2e/api.log`) | `api-note-through-api` |
+| Webhooks (Redmine 7): payload per owner | My account > Webhooks; receiver in the script | `webhooks.mjs` (log `webhooks.log`) | `webhooks-reporter-form`, `webhooks-reporter-list`, `webhooks-manager-form`, `webhooks-manager-list` |
+| Mail: attributes, assignee header, description, change details | issue update notification (`tmp/mails`) | `mail.mjs` (log `mail.log`) | `mail-manager-mail`, `mail-reporter-mail` |
+| Issue PDF and Atom: hidden description | `/issues/:id.pdf`, `/issues.atom` | unit/functional tests; pdftotext on the server: description 1x as manager, 0x as reporter | (no page) |
+| Core flows with the plugin | new issue, note, context menu, refusal | `.codex/e2e/core.mjs` | `core-*` |
+| Smoke | the plugin adds no GET routes besides the settings page | `.codex/e2e/smoke.mjs` | `smoke-*` |
+
+No rake tasks, cron jobs, macros, hooks, migrations or mail handlers in this plugin.
+
+## Results
+
+Baseline (before any change, `9367e5f`): 7.0-stable-GEOxyz PostgreSQL: 8 runs, 42 assertions, 0 failures; smoke 11 / core 6 screenshots, 0 problems (`docs/e2e/baseline/`). 5.1-stable PostgreSQL with master: 8 runs, 35 assertions, 0 failures. Getter wrappers installed: 0 of 8 on both (test and production mode).
+
+Final (`dd49db6`, code unchanged since `b7e3ad8`):
+
+| run | result |
+|---|---|
+| tests, 7.0-stable-GEOxyz, PostgreSQL 16.15 | 33 runs, 195 assertions, 0 failures, 0 errors, 0 skips |
+| tests, 7.0-stable-GEOxyz, MariaDB 10.11.14 | 33 runs, 195 assertions, 0 failures, 0 errors, 0 skips (3 runs in a row) |
+| tests, 5.1-stable, PostgreSQL, Ruby 3.2.6 | 32 runs, 160 assertions, 0 failures (the webhook test exists on 7 only) |
+| e2e, PostgreSQL, fresh database | smoke 11, core 6, scenarios 7 with 27 screenshots, 0 problems |
+| e2e, MariaDB, fresh database | same, 0 problems (`docs/e2e/mariadb/`) |
+| e2e, 5.1 with this branch (not committed) | 0 problems except checks of Redmine 6+ features (remaining time) and 7.0 markup |
+| e2e before, 5.1 with master | API: 9 leaks; version page shows 6:00 to reporter; description on the issue page; mail assignee header and description (`docs/e2e/before/*.md`) |
+| together with redmine_itil_priority, redmine_parent_child_filters, redmine_issue_todo_lists2, redmine_extended_api, redmine_view_issue_description, redmine_tint_issues (their redmine70-migration branch where it exists) | tests 31/31 green (role permission `view_issue_description` granted in a temporary setup hook: that plugin makes it mandatory to open an issue, core fixtures lack it); e2e all green after granting the same permission to the seeded roles. Static scan of 34 public GEOxyz plugins: none patches the readers, `render_to_body`, `Mailer#issue_add/issue_edit`, `Version#visible_fixed_issues` or `webhook_payload`; overlaps only on `IssueQuery` filters/columns and `column_content` (alias chains or prepend, compose fine) |
+| migrations | none in this plugin |
+| own review | see "Own review notes" |
+| OpenAI review | 3 rounds: `docs/reviews/openai-2026-10-06-ffe1644.md` (1 fixed, 1 not a bug), `-bf9a550.md` (not a bug, proven by a new PDF test), `-0b94037.md` (1 hardening, 1 not a bug), `-6657698.md`: no findings |
+
+## Own review notes
+
+- Readers are guarded only inside `hide_values`: API rendering (any controller), every IssuesController rendering (HTML, PDF, Atom, CSV, JS), webhook payloads, issue mails. Never around an action, so saves and Redmine's calculations (parent dates, done ratio weighted by `total_estimated_hours`, rescheduling) see the real values; `test_update_json_should_keep_hidden_values` and the e2e PUT prove an update by a user with hidden fields keeps them.
+- The guard is a thread/fiber-local flag; nested renders restore the previous value.
+- Inside IssuesController views a hidden `priority` is nil; core reads it nil-safe there (`css_classes` uses `try`, the show row is skipped through `disabled_core_fields`). Gantt and calendar tooltips (`issue.priority.name`) are outside IssuesController and not wrapped.
+- `Issue#visible?` for a role with "own issues" visibility checks `assigned_to`; inside `hide_values` a hidden assignee makes such child issues drop out of the API children list (over-hiding, not a leak).
+- Version totals use the version's project for the hidden check, as before; issues of other projects in a shared version follow that project's setting.
+
+## Open questions for Jan
+
+1. **Scope of the getter wrappers.** Upstream (planio) overrode the readers globally (always nil for a hidden field); GEOxyz `cd3554e` disabled that by accident in 2023, so production has run without it. Options: (a) global, like upstream: also hides on gantt, calendar, activity, search, but Redmine's own calculations would see nil (parent done ratio weighted by estimated time, copying, rescheduling) and could store wrong values; (b) scoped to rendering for a user (API, webhooks, issue pages, mails). **Built: (b)**, recommended: no data risk, no behaviour change for users who see the fields.
+2. **Remaining places where a hidden field is still visible** (same on 5.1, not fixed because it changes pages users use daily): gantt and calendar (dates, and the tooltip with assignee and priority), activity and search results (description), the project overview "Estimated time" total (`ProjectsController#show`), the subtask list on 5.1 (on 7 it goes through `column_content` and is hidden). Recommendation: hide the project overview total and the tooltip lines next; leave gantt/calendar bars (hiding dates there makes the charts useless for that role).
+3. The settings page still has one hard-coded English string ("Set up some roles before using this plugin.", only shown without roles). Not changed (pre-existing); recommend an I18n key in a later change.
+4. `.codex/test_setup.sh` fails as root when it provisions PostgreSQL (`$SUDO -u postgres` with an empty `$SUDO`); worked around by creating the role by hand and `RMP_PROVISION_DB=0`. The script is shared tooling, so not changed here.
+
+## What is left
+
+- Nothing of the work list. Not testable here: none (no IdP/LDAP/OAuth/mail server involved in this plugin; mail checked through file delivery, webhooks through a local receiver).
 
 ## How to test
 
