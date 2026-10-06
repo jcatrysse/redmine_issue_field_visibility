@@ -4,7 +4,15 @@ Redmine Issue Field Visibility Plugin ![Build Status](https://github.com/planio-
 This plugin allows to hide certain core fields from specific roles.
 
 The fields you can hide are `assigned to`, `category`, `start date`, `due
-date`, `target version` and `estimated time`.
+date`, `target version`, `estimated time`, `description` and `priority`.
+Hiding the estimated time also hides the total and remaining estimated time.
+
+A hidden field is left out of the issue page and forms, the issue list
+(columns, filters, totals, CSV), the history, the issue PDF and Atom feed,
+the version page, issue mails (attributes, the `X-Redmine-Issue-Assignee`
+header and the description), REST API responses and, on Redmine 7, webhook
+payloads (rendered for the webhook owner). Redmine's own calculations (parent
+dates, done ratio, totals) keep using the real values.
 
 Development of this plugin has been sponsored by
 [SDZeCOM GmbH & Co. KG](http://www.sdzecom.de).
