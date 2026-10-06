@@ -10,10 +10,32 @@ module RedmineIssueFieldVisibility
           alias_method :reload_without_ifv, :reload
           alias_method :reload, :reload_with_ifv
 
+          alias_method :total_estimated_hours_without_ifv, :total_estimated_hours
+          alias_method :total_estimated_hours, :total_estimated_hours_with_ifv
+          if method_defined?(:estimated_remaining_hours)
+            alias_method :estimated_remaining_hours_without_ifv, :estimated_remaining_hours
+            alias_method :estimated_remaining_hours, :estimated_remaining_hours_with_ifv
+          end
+
+          # Attribute and association readers of the hideable fields answer
+          # nil inside RedmineIssueFieldVisibility.hide_values. Rails generates
+          # the attribute readers in a module after the plugin is loaded, so
+          # they are wrapped from Issue itself through super; a reader that
+          # Issue defines itself is aliased instead.
           RedmineIssueFieldVisibility::HIDEABLE_CORE_FIELDS.each do |field|
-            if Issue.method_defined?(field)
-              alias_method "#{field}_without_ifv", field
-              alias_method field, "#{field}_with_ifv"
+            readers = [field]
+            readers << field.sub(/_id\z/, '') if field.end_with?('_id')
+            readers.each do |reader|
+              if method_defined?(reader, false)
+                alias_method "#{reader}_without_ifv", reader
+                define_method(reader) do
+                  send("#{reader}_without_ifv") unless hidden_core_field_value?(field)
+                end
+              else
+                define_method(reader) do
+                  super() unless hidden_core_field_value?(field)
+                end
+              end
             end
           end
         end
@@ -47,12 +69,16 @@ module RedmineIssueFieldVisibility
           @user_for_hidden_core_fields = nil
         end
 
-        RedmineIssueFieldVisibility::HIDEABLE_CORE_FIELDS.each do |field|
-          if Issue.method_defined?(field)
-            define_method "#{field}_with_ifv" do
-              send("#{field}_without_ifv") unless hidden_core_field?(field)
-            end
-          end
+        def hidden_core_field_value?(field)
+          RedmineIssueFieldVisibility.hide_values? && hidden_core_fields.include?(field)
+        end
+
+        def total_estimated_hours_with_ifv
+          total_estimated_hours_without_ifv unless hidden_core_field_value?('estimated_hours')
+        end
+
+        def estimated_remaining_hours_with_ifv
+          estimated_remaining_hours_without_ifv unless hidden_core_field_value?('estimated_hours')
         end
 
         # WARNING: if changed here change in journal_patch too

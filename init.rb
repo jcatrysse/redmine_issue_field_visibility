@@ -23,3 +23,4 @@ require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/is
 require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/issue_query_patch'
 require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/journal_patch'
 require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/version_patch'
+require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/application_controller_patch'

@@ -4,6 +4,22 @@ module RedmineIssueFieldVisibility
   # parent_issue_id doesn't make much sense
   HIDEABLE_CORE_FIELDS = Tracker::CORE_FIELDS - %w(done_ratio parent_issue_id)
 
+  # Inside the block the issue readers of the core fields hidden for the
+  # current user answer nil. Used while issue data is rendered for a user (API
+  # responses, webhook payloads), not around Redmine's own calculations, which
+  # need the real values.
+  def self.hide_values
+    hiding = Thread.current[:redmine_issue_field_visibility_hide_values]
+    Thread.current[:redmine_issue_field_visibility_hide_values] = true
+    yield
+  ensure
+    Thread.current[:redmine_issue_field_visibility_hide_values] = hiding
+  end
+
+  def self.hide_values?
+    Thread.current[:redmine_issue_field_visibility_hide_values] == true
+  end
+
   def self.hidden_core_fields(user = User.current, project = nil)
     return [] if user.admin?
     if (fields_by_role = Setting.plugin_redmine_issue_field_visibility['hiddenfields'])
