@@ -132,6 +132,30 @@ class RedmineIssueFieldVisibilityIssuesControllerTest < Redmine::ControllerTest
     end
   end
 
+  # the PDF is built in issues/show.pdf.erb, so inside render_to_body
+  def test_show_pdf_should_not_contain_hidden_description
+    @issue.update_columns description: 'Secret description'
+    # the text is UTF-16BE inside compressed content streams
+    pdf_text = lambda do
+      response.body.b.scan(/stream\r?\n(.*?)endstream/m).map do |(data)|
+        Zlib::Inflate.inflate(data) rescue ''
+      end.join.delete("\x00")
+    end
+    get :show, params: { id: 1, format: 'pdf' }
+    assert_response :success
+    assert_equal 'application/pdf', response.media_type
+    assert_includes pdf_text.call, 'Secret description'
+
+    with_settings(plugin_redmine_issue_field_visibility: {
+      'hiddenfields' => { '1' => { 'description' => '1' } }
+    }) do
+      get :show, params: { id: 1, format: 'pdf' }
+      assert_response :success
+      assert_not_includes pdf_text.call, 'Secret description'
+      assert_includes pdf_text.call, 'Cannot print recipes'
+    end
+  end
+
   def test_index_atom_should_not_contain_hidden_description
     @issue.update_columns description: 'Secret description'
     get :index, params: { project_id: 1, format: 'atom' }
