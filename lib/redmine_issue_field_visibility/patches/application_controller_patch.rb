@@ -11,10 +11,12 @@ module RedmineIssueFieldVisibility
       end
 
       module InstanceMethods
-        # API responses leave out the issue fields hidden for the API user.
-        # Only the rendering is wrapped, not the action that saves the issue.
+        # API responses, and every response of the issues controller (the
+        # description on the issue page, PDF, Atom), leave out the issue fields
+        # hidden for the user. Only the rendering is wrapped, not the action
+        # that saves the issue.
         def render_to_body_with_ifv(*args)
-          if api_request?
+          if api_request? || is_a?(IssuesController)
             RedmineIssueFieldVisibility.hide_values do
               render_to_body_without_ifv(*args)
             end

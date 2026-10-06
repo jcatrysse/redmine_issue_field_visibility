@@ -113,6 +113,37 @@ class RedmineIssueFieldVisibilityIssuesControllerTest < Redmine::ControllerTest
     end
   end
 
+  def test_show_should_not_display_hidden_description
+    @issue.update_columns description: 'Secret description'
+    get :show, params: { id: 1 }
+    assert_select 'div.description', text: /Secret description/
+
+    with_settings(plugin_redmine_issue_field_visibility: {
+      'hiddenfields' => { '1' => { 'description' => '1' } }
+    }) do
+      get :show, params: { id: 1 }
+      assert_response :success
+      assert_select 'div.description', 0
+      assert_not_includes response.body, 'Secret description'
+      assert_select 'div.subject', text: /Cannot print recipes/
+    end
+  end
+
+  def test_index_atom_should_not_contain_hidden_description
+    @issue.update_columns description: 'Secret description'
+    get :index, params: { project_id: 1, format: 'atom' }
+    assert_includes response.body, 'Secret description'
+
+    with_settings(plugin_redmine_issue_field_visibility: {
+      'hiddenfields' => { '1' => { 'description' => '1' } }
+    }) do
+      get :index, params: { project_id: 1, format: 'atom' }
+      assert_response :success
+      assert_not_includes response.body, 'Secret description'
+      assert_includes response.body, 'Cannot print recipes'
+    end
+  end
+
   def test_show_should_display_not_hidden_issue_fields_journals
     j = @issue.init_journal User.find(1)
     @issue.estimated_hours = 13.5

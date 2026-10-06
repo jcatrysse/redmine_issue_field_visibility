@@ -22,13 +22,13 @@ module RedmineIssueFieldVisibility
             alias_method :webhook_payload, :webhook_payload_with_ifv
           end
 
-          # Attribute and association readers of the hideable fields answer
-          # nil inside RedmineIssueFieldVisibility.hide_values. Rails generates
+          # Attribute, query (description?) and association readers of the
+          # hideable fields answer nil inside RedmineIssueFieldVisibility.hide_values. Rails generates
           # the attribute readers in a module after the plugin is loaded, so
           # they are wrapped from Issue itself through super; a reader that
           # Issue defines itself is aliased instead.
           RedmineIssueFieldVisibility::HIDEABLE_CORE_FIELDS.each do |field|
-            readers = [field]
+            readers = [field, "#{field}?"]
             readers << field.sub(/_id\z/, '') if field.end_with?('_id')
             readers.each do |reader|
               if method_defined?(reader, false)
