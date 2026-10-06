@@ -3,7 +3,7 @@ GET /issues/1.json as manager: HTTP 200
 GET /issues/1.json as reporter: HTTP 200
   reporter: assigned_to=undefined category=undefined start_date=null due_date=null estimated_hours=null total_estimated_hours=null description=null; priority=Normal, fixed_version=E2E 1.0
 GET /projects/e2e-project/issues.json?status_id=*&limit=100 as reporter: HTTP 200
-  reporter list: 9 issues, 0 with a hidden field
+  reporter list: 6 issues, 0 with a hidden field
 GET /issues/1.xml as reporter: HTTP 200
   reporter xml: <estimated_hours/> no assigned_to
 PUT /issues/1.json as reporter {notes, estimated_hours: 99, assigned_to_id: ""}: HTTP 204
