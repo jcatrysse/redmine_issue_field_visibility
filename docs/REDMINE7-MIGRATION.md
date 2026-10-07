@@ -4,7 +4,7 @@ Start a Claude Code (or Codex) session on this repository, branch `redmine70-mig
 
 > Read CLAUDE.md and docs/REDMINE7-MIGRATION.md, then carry out the Redmine 7 migration of this
 > plugin as described there, on branch redmine70-migration. That includes the plugin's tests on
-> PostgreSQL and MariaDB, every function exercised end to end on a real running Redmine in a
+> PostgreSQL, every function exercised end to end on a real running Redmine in a
 > browser (with and without permissions, failure paths included) with screenshots you looked at,
 > and an OpenAI review of the diff when OPENAI_API_KEY is set. Report to me in Dutch at the end.
 
@@ -47,6 +47,11 @@ Commits after the plan (`9367e5f`), oldest first:
 | `b2fe8a5`, `b7e3ad8` | PDF test (answers an OpenAI finding), `require 'zlib'` |
 | `308f8e5`, `6c55afa`, `9389227`, `dd49db6` | e2e scenarios and evidence: PostgreSQL, MariaDB, before (5.1), final PostgreSQL run |
 | `bf9a550`, `0b94037`, `6657698` | OpenAI reviews with resolutions |
+| `0c661cd` | Jan's decisions of 2026-10-07 (`docs/DECISIONS-2026-10-07.md`) |
+| `8cc60b8` | every patch prepended instead of alias_method chains (SystemStackError with redmine_agile on every issue query); `test/unit/patches_prepended_test.rb`, `test/e2e/core-pages.mjs`, `docs/e2e/with-agile/` |
+| `ea67a33` | decision 2: project overview estimated total and gantt/calendar tooltip lines hidden |
+| `a74bd68` | decision 3: the settings hint without roles translatable (en, de, es, bg) |
+| `5d410a7` | `Issue#reload` no longer patched: redmineup (redmineup_tags) aliases it after this plugin; found in the combined run |
 
 ## Work list for the migration session
 
@@ -69,6 +74,13 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 7. DONE. See "Results".
 8. DONE. See "Inventory of functions" and "Results".
 
+**After Jan's decisions (2026-10-07)**
+
+9. DONE (`8cc60b8`, `5d410a7`) Every patch prepended, same behaviour; issue list, bulk edit, issue page, version page and Project > Settings answer 200 with redmine_agile and with all 37 GEOxyz plugins that have a `redmine70-migration` branch (`core-pages.mjs`).
+10. DONE (`ea67a33`) Decision 2: project overview total and gantt/calendar tooltip.
+11. DONE (`a74bd68`) Decision 3: settings hint without roles translatable.
+12. DONE Decision 1: recorded, no code (built before).
+
 ## GEOxyz changes to review or re-apply
 
 These GEOxyz commits are on the branch GEOxyz runs today and therefore on this branch. Review each one against the code it now sits on (upstream merges and Redmine 7 core): drop it if upstream or core now does the same, rewrite it if it is not up to the quality rules below (tests, I18n, security, portability), keep it otherwise. Record the verdict per commit in this file.
@@ -83,7 +95,7 @@ Verdicts:
 
 - `4139400` KEEP. Still needed on Redmine 7: the project list as a list renders its rows through `QueriesHelper#column_content`. Test `test/functional/projects_controller_test.rb` (`84dd3f7`) raises `NoMethodError hidden_core_field? for Project` without it; e2e `issue-list-project-list.png`.
 - `e0c7abf` KEEP. File move only.
-- `cd3554e` KEEP, partly REWRITTEN. `alias_method` instead of upstream's `prepend` stays (it fixed a SystemStackError with other plugins' alias chains, and the overlapping GEOxyz plugins use alias chains or prepend on other methods). Its getter part was silently inactive (`Issue.method_defined?(field)` is false when init.rb runs): rewritten in `ebf665a` without `prepend` (define_method on Issue with super, alias where Issue defines the reader itself) and scoped to rendering, see open question 1.
+- `cd3554e` REWRITTEN. Its getter part was silently inactive (`Issue.method_defined?(field)` is false when init.rb runs): rewritten in `ebf665a` and scoped to rendering (decision 1). Its `alias_method` chains (which in 2023 fixed a SystemStackError against other plugins' alias chains) caused the same error the other way round once the GEOxyz plugins moved to `prepend` (redmine_agile: every issue query). Per Jan's rule of 2026-10-07 every patch is prepended again (`8cc60b8`); all overlapping GEOxyz plugins prepend too (static scan of the 37: agile, contacts_helpdesk, itil_priority, issue_todo_lists2, parent_child_filters, zenedit). `Issue#reload` is the exception: the redmineup gem chains it with `alias_method` after this plugin, so it is not patched any more (`5d410a7`).
 
 ## After the upgrade (production)
 
@@ -94,10 +106,12 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
   REST API responses (`/issues.json|xml`, `/issues/:id.json|xml`, the create response, `/versions/:id.json`) and Redmine 7 webhook payloads now return `null` (or leave out the `assigned_to`, `category`, `fixed_version`, `priority` objects) for fields hidden for the API user or the webhook owner. **Check the roles of integration accounts** (API keys, webhook owners): if one of their roles hides a field an integration needs, give the account a role that does not hide it (an admin sees everything).
 - Issue mails no longer carry `X-Redmine-Issue-Assignee` or the description for recipients who have these fields hidden: mail filters that sort on that header for such users stop matching.
 - The version page shows 0:00 for estimated and remaining time to users with estimated time hidden.
+- Decision 2 (2026-10-07): the project overview no longer shows the "Estimated time" total to users with estimated time hidden in the project (subprojects where it is hidden are not counted for the others), and the gantt and calendar tooltips leave out start date, due date, assignee and priority when hidden. The gantt and calendar bars stay (they still place the issue by its dates); the gantt subject column still shows the assignee's avatar (core `Redmine::Helpers::Gantt#subject_for_issue`), as do activity and search for the description (decision 1).
+- Nothing to do for the switch to `prepend`; it is what makes this plugin run next to redmine_agile.
 
 ## Inventory of functions
 
-Seed (`test/e2e/seed.rb`): role Reporter hides assignee, category, start and due date, estimated time and description; issue #1 has all of them set, a version, a journal that changed the estimate; role E2E full (manager) hides nothing. Screenshots in `docs/e2e/` (PostgreSQL), `docs/e2e/mariadb/` (same set on MariaDB), `docs/e2e/before/` (Redmine 5.1 with master @ 4139400).
+Seed (`test/e2e/seed.rb`): role Reporter hides assignee, category, start and due date, estimated time and description; issue #1 has all of them set, a version, a journal that changed the estimate; role E2E full (manager) hides nothing. Screenshots in `docs/e2e/` (PostgreSQL, plugin alone), `docs/e2e/combined/` (PostgreSQL, the 37 GEOxyz plugins installed), `docs/e2e/with-agile/` (redmine_agile only), `docs/e2e/mariadb/` (MariaDB, 2026-10-06, before the decisions; not repeated, PostgreSQL only since then), `docs/e2e/before/` (Redmine 5.1 with master @ 4139400).
 
 | function | how a user reaches it | scenario | screenshots |
 |---|---|---|---|
@@ -113,6 +127,10 @@ Seed (`test/e2e/seed.rb`): role Reporter hides assignee, category, start and due
 | Issue PDF and Atom: hidden description | `/issues/:id.pdf`, `/issues.atom` | unit/functional tests; pdftotext on the server: description 1x as manager, 0x as reporter | (no page) |
 | Core flows with the plugin | new issue, note, context menu, refusal | `.codex/e2e/core.mjs` | `core-*` |
 | Smoke | the plugin adds no GET routes besides the settings page | `.codex/e2e/smoke.mjs` | `smoke-*` |
+| Core pages this plugin patches, with and without other plugins (prepend) | issue list (global, project, with hidden columns/totals/group by), bulk edit, issue page, version page, Project > Settings, private project | `core-pages.mjs`, as admin, manager, reporter, outsider (refusals: bulk edit and settings 403 for reporter and outsider, private project 403) | `core-pages-*`; with redmine_agile `docs/e2e/with-agile/` (incl. the agile board) and its before log `with-agile/before.md`; with all GEOxyz plugins `docs/e2e/combined/` |
+| Project overview: estimated time total (decision 2) | `/projects/:id` | `project-overview.mjs` | `project-overview-admin`, `-manager`, `-outsider` (6:00), `-reporter` (spent time only), `-reporter-private-refused`, `-outsider-private-refused` |
+| Gantt and calendar tooltip (decision 2) | Gantt, Calendar, hover an issue | `tooltip.mjs` | `tooltip-<user>-gantt`, `tooltip-<user>-calendar` for admin, manager, outsider (all lines) and reporter (no dates, no assignee), `tooltip-outsider-private-refused` |
+| Settings page without roles (decision 3) | Administration > Plugins > Configure with no roles | `settings-no-roles.mjs` (roles moved aside in the e2e database and put back) | `settings-no-roles-admin-en`, `-admin-de`, `-manager-refused`, `-reporter-refused`, `-outsider-refused`, `-admin-restored` |
 
 No rake tasks, cron jobs, macros, hooks, migrations or mail handlers in this plugin.
 
@@ -140,16 +158,46 @@ Final (`dd49db6`, code unchanged since `b7e3ad8`):
 
 - Readers are guarded only inside `hide_values`: API rendering (any controller), every IssuesController rendering (HTML, PDF, Atom, CSV, JS), webhook payloads, issue mails. Never around an action, so saves and Redmine's calculations (parent dates, done ratio weighted by `total_estimated_hours`, rescheduling) see the real values; `test_update_json_should_keep_hidden_values` and the e2e PUT prove an update by a user with hidden fields keeps them.
 - The guard is a thread/fiber-local flag; nested renders restore the previous value.
-- Inside IssuesController views a hidden `priority` is nil; core reads it nil-safe there (`css_classes` uses `try`, the show row is skipped through `disabled_core_fields`). Gantt and calendar tooltips (`issue.priority.name`) are outside IssuesController and not wrapped.
+- Inside IssuesController views a hidden `priority` is nil; core reads it nil-safe there (`css_classes` uses `try`, the show row is skipped through `disabled_core_fields`). Gantt and calendar tooltips are outside IssuesController and not wrapped; since decision 2 they leave out the hidden lines themselves (the priority line too, so `issue.priority.name` is never read when hidden).
+- All patches are modules prepended with `super` (2026-10-07). They compose with the other GEOxyz plugins' prepends whatever the load order; they break only against an `alias_method` chain set up on the same method after this plugin (that is why `Issue#reload` is left alone: redmineup). `patches_prepended_test.rb` checks the structure and both compositions.
 - `Issue#visible?` for a role with "own issues" visibility checks `assigned_to`; inside `hide_values` a hidden assignee makes such child issues drop out of the API children list (over-hiding, not a leak).
 - Version totals use the version's project for the hidden check, as before; issues of other projects in a shared version follow that project's setting.
 
-## Open questions for Jan
+## Decisions (Jan, 2026-10-07)
 
-1. **Scope of the getter wrappers.** Upstream (planio) overrode the readers globally (always nil for a hidden field); GEOxyz `cd3554e` disabled that by accident in 2023, so production has run without it. Options: (a) global, like upstream: also hides on gantt, calendar, activity, search, but Redmine's own calculations would see nil (parent done ratio weighted by estimated time, copying, rescheduling) and could store wrong values; (b) scoped to rendering for a user (API, webhooks, issue pages, mails). **Built: (b)**, recommended: no data risk, no behaviour change for users who see the fields.
-2. **Remaining places where a hidden field is still visible** (same on 5.1, not fixed because it changes pages users use daily): gantt and calendar (dates, and the tooltip with assignee and priority), activity and search results (description), the project overview "Estimated time" total (`ProjectsController#show`), the subtask list on 5.1 (on 7 it goes through `column_content` and is hidden). Recommendation: hide the project overview total and the tooltip lines next; leave gantt/calendar bars (hiding dates there makes the charts useless for that role).
-3. The settings page still has one hard-coded English string ("Set up some roles before using this plugin.", only shown without roles). Not changed (pre-existing); recommend an I18n key in a later change.
-4. `.codex/test_setup.sh` fails as root when it provisions PostgreSQL (`$SUDO -u postgres` with an empty `$SUDO`); worked around by creating the role by hand and `RMP_PROVISION_DB=0`. The script is shared tooling, so not changed here.
+Jan answered the open questions on 2026-10-07 in the coordinating session
+(https://claude.ai/code/session_01GiSsYPm3bxvqrpZkdCxNoi); recorded verbatim in
+`docs/DECISIONS-2026-10-07.md` (commit `0c661cd`). No open questions are left.
+
+General (every GEOxyz plugin): no 5.1 (straight to Redmine 7, nothing backported or
+cherry-picked, `redmine70-migration` goes live), PostgreSQL only (MariaDB runs no longer
+required), deface without a version constraint (not used here), `prepend` instead of
+`alias_method` on core methods other plugins patch, GitHub Actions manual only. See "Rules".
+Carried out here: every patch prepended (`8cc60b8`, `Issue#reload` no longer patched `5d410a7`),
+proven with redmine_agile (the SystemStackError the coordinator saw) and with all 37 GEOxyz
+plugins that have a `redmine70-migration` branch.
+
+1. **q1, scope of the getter wrappers.** "Moeten verborgen velden overal leeg zijn, of alleen
+   wanneer Redmine ze aan een gebruiker toont?" Jan chose **A**: "Alleen bij het tonen aan een
+   gebruiker (gebouwd)" (Geen risico op verkeerd opgeslagen waarden; gantt, kalender, activiteit
+   en zoeken tonen verborgen velden nog wel.). Already built (`ebf665a`, scoped to rendering);
+   kept, no code change.
+2. **q2, remaining places where a hidden field is visible.** "Welke plekken waar een verborgen
+   veld nog zichtbaar is, pakken we hierna aan?" Jan chose **A**: "Eerst het projecttotaal en de
+   tooltip verbergen" (Sluit de duidelijkste lekken; de balken in gantt en kalender blijven
+   bruikbaar voor die rol.). Built in `ea67a33`: the project overview leaves out the
+   "Estimated time" total where the user has estimated time hidden in the project (and does not
+   count subprojects where it is hidden); the gantt and calendar tooltips leave out start date,
+   due date, assignee and priority when hidden. Gantt and calendar bars, activity and search stay
+   as they are (q1).
+3. **q3, the hard-coded English sentence on the settings page.** "Moet de laatste vaste Engelse
+   zin op de instellingenpagina vertaalbaar worden?" Jan chose **A**: "Later vertaalbaar maken
+   in een aparte wijziging" (Kleine wijziging; de zin verschijnt dan in de taal van de
+   gebruiker.). Built in its own commit `a74bd68`: key `issue_field_visibility_no_roles` in en,
+   de, es, bg.
+4. (Former note 4, not a question) `.codex/test_setup.sh` fails as root when it provisions
+   PostgreSQL (`$SUDO -u postgres` with an empty `$SUDO`); worked around again with
+   `RMP_PROVISION_DB=0` and a role created by hand. Shared tooling, not changed here.
 
 ## What is left
 
@@ -158,8 +206,8 @@ Final (`dd49db6`, code unchanged since `b7e3ad8`):
 ## How to test
 
 ```sh
-./.codex/redmine_clone.sh 7.0-stable-GEOxyz      # or 5.1-stable / 6.1-stable / 7.0-stable
-./.codex/test_setup.sh                                 # RMP_DB=mariadb for MariaDB, RMP_PROVISION_DB=0 if a server runs
+./.codex/redmine_clone.sh 7.0-stable-GEOxyz      # or 7.0-stable
+./.codex/test_setup.sh                                 # RMP_PROVISION_DB=0 if a server runs
 ./.codex/test_plugin.sh                                # minitest + rspec of this plugin
 ```
 
@@ -186,7 +234,7 @@ results quoted in the analysis come from it.
 1. **Start**: `git fetch && git checkout redmine70-migration && git pull`. Read this whole file,
    including the analysis report at the bottom. Do not reopen decisions recorded here.
 2. **Baseline, before you change anything**:
-   - the plugin's tests on Redmine 7.0-stable-GEOxyz with PostgreSQL and with MariaDB;
+   - the plugin's tests on Redmine 7.0-stable-GEOxyz with PostgreSQL;
    - a real running Redmine with this plugin (`./.codex/start_server.sh`) and the browser run
      (`./.codex/e2e.sh`: smoke over every page the plugin adds, plus the core issue flows).
    Write the numbers here. Something already broken now is a finding, not your regression.
@@ -198,9 +246,8 @@ results quoted in the analysis come from it.
 4. **GEOxyz changes**: go through the table above, one item at a time. Each kept or re-made change
    is its own commit with a test that proves it. Record the verdict in the table.
 5. **Work list**: then the numbered list, in order. One concern per commit.
-6. **Portability**: everything must run on Redmine's supported databases (PostgreSQL,
-   MySQL/MariaDB; SQLite where the plugin already supports it). Migrations must be reversible and
-   are run down and up on PostgreSQL and MariaDB.
+6. **Portability**: tests and e2e on PostgreSQL (GEOxyz production); keep SQL portable where that
+   costs nothing. Migrations must be reversible and are run down and up on PostgreSQL.
 7. **Together**: run with the other GEOxyz plugins installed (the migration kit's harness, or
    `RMP_EXTRA_PLUGINS`). A failure that only appears in combination is a finding to record here.
 8. **End to end, visually, every function**: on the real Redmine from `start_server.sh`
@@ -218,8 +265,7 @@ results quoted in the analysis come from it.
      them against the same running instance (mails land in `redmine/tmp/mails`, `t.mails()`
      reads them; API through `t.page.request`) and record command and result.
    - Before pictures where behaviour or layout changes: the branch GEOxyz runs today, on
-     Redmine 5.1, same scenarios, `RMP_E2E_OUT=docs/e2e/before`.
-   - Run the whole e2e set once on MariaDB as well (`RMP_DB=mariadb`, then `start_server.sh --reset`).
+     Redmine 5.1, same scenarios, `RMP_E2E_OUT=docs/e2e/before` (evidence only; no 5.1 code).
 9. **Independent review**: first your own, adversarial: re-read the whole diff as if someone
    else wrote it and you are paid to reject it. Then, **when `OPENAI_API_KEY` is set in the
    session**, `./.codex/openai_review.sh`: it sends the diff of this branch to an OpenAI model
@@ -230,7 +276,7 @@ results quoted in the analysis come from it.
 10. **After the upgrade**: anything the production upgrade must do for this plugin (data fixes,
     settings, cron, files, removed features) goes into the section "After the upgrade".
 11. **Finish**: update "Status", the inventory and the work list in this file, push
-    `redmine70-migration`, and report: what changed, test numbers on both databases, e2e
+    `redmine70-migration`, and report: what changed, test numbers, e2e
     numbers (scenarios, screenshots, problems), the review result, what is left, what needs Jan.
 
 ### Stop and ask Jan when
@@ -264,8 +310,19 @@ results quoted in the analysis come from it.
   (on by default: `t.sudo()` in a scenario). The breaker list is in the migration kit's CHECKLIST.md.
 - **Locales**: keep the locales the plugin ships in sync; translate a new key by matching the
   closest existing key in the same file, not from scratch; do not add new languages.
-- **5.1 compatibility**: prefer fixes that also run on Redmine 5.1 so they can be merged early;
-  say so when a fix cannot.
+- **No 5.1** (Jan, 2026-10-07): GEOxyz goes straight to Redmine 7. No backports to 5.1, nothing is
+  cherry-picked to the default branch or to the branch production runs today;
+  `redmine70-migration` is what goes live with Redmine 7. Do not add code paths that exist only
+  for 5.1.
+- **PostgreSQL only** (Jan, 2026-10-07): production runs PostgreSQL 16; tests and the e2e set run
+  on PostgreSQL. Keep SQL portable where that costs nothing; a MariaDB-only problem is a note
+  here, not a blocker.
+- **prepend, never alias_method** (Jan, 2026-10-07) on a Redmine core method that other installed
+  plugins also patch: mixing both on one method recurses. Every patch of this plugin is prepended
+  (`8cc60b8`); the one exception is a method a third-party gem chains with `alias_method` after
+  this plugin is loaded: there this plugin does not patch it (`Issue#reload`, redmineup).
+- **deface** (Jan, 2026-10-07): a plugin that depends on deface requires it without a version
+  constraint. This plugin does not use deface and has no Gemfile.
 - **Git**: work on `redmine70-migration` only; never push to the default branch; never force-push
   a branch someone else uses. Descriptive commit messages (what and why). Push after every
   commit, together with the updated status in this file: a cloud session can stop at a usage
@@ -276,8 +333,9 @@ results quoted in the analysis come from it.
 ## Definition of done
 
 - All items of the work list are done or explicitly deferred with a reason, in this file.
-- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL and MariaDB
-  (numbers in this file); boot, production-like eager load, migrations up/down OK.
+- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL, alone and with the
+  other GEOxyz plugins (numbers in this file); boot, production-like eager load, migrations
+  up/down OK.
 - Every function in the inventory exercised end to end on a real running Redmine, with and
   without permissions and on its failure paths; `./.codex/e2e.sh` green; screenshots looked at,
   committed in `docs/e2e/` and listed.

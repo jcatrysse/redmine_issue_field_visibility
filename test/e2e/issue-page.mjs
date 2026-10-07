@@ -42,7 +42,8 @@ for (const id of ['issue_assigned_to_id', 'issue_category_id', 'issue_start_date
   expect(!(await has(`#${id}`)), `reporter new form: #${id} shown`);
 }
 expect(await has('#issue_subject'), 'reporter new form: no subject');
-expect(await has('#issue_priority_id'), 'reporter new form: no priority');
+// redmine_itil_priority, when installed, replaces the priority select by urgency and impact
+expect(await has('#issue_priority_id') || await has('select[name="issue[urgency_id]"]'), 'reporter new form: no priority');
 await t.page.fill('#issue_subject', `Created by the reporter ${Date.now()}`);
 await t.shot('reporter-new', 'Reporter: the new issue form without the hidden fields');
 await t.page.click('#issue-form input[name=commit]');
