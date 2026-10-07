@@ -25,3 +25,4 @@ require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/jo
 require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/version_patch'
 require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/application_controller_patch'
 require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/mailer_patch'
+require File.dirname(__FILE__) + '/lib/redmine_issue_field_visibility/patches/projects_controller_patch'
