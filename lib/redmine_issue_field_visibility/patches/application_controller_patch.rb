@@ -1,32 +1,24 @@
 module RedmineIssueFieldVisibility
   module Patches
+    # Prepended, never an alias_method chain: other plugins patch the same
+    # core methods with prepend, and a chain set up after their prepend
+    # recurses (SystemStackError).
     module ApplicationControllerPatch
-      def self.included(base)
-        base.send(:include, InstanceMethods)
-
-        base.class_eval do
-          alias_method :render_to_body_without_ifv, :render_to_body
-          alias_method :render_to_body, :render_to_body_with_ifv
-        end
-      end
-
-      module InstanceMethods
-        # API responses, and every response of the issues controller (the
-        # description on the issue page, PDF, Atom), leave out the issue fields
-        # hidden for the user. Only the rendering is wrapped, not the action
-        # that saves the issue.
-        def render_to_body_with_ifv(*args)
-          if api_request? || is_a?(IssuesController)
-            RedmineIssueFieldVisibility.hide_values do
-              render_to_body_without_ifv(*args)
-            end
-          else
-            render_to_body_without_ifv(*args)
+      # API responses, and every response of the issues controller (the
+      # description on the issue page, PDF, Atom), leave out the issue fields
+      # hidden for the user. Only the rendering is wrapped, not the action
+      # that saves the issue.
+      def render_to_body(*args)
+        if api_request? || is_a?(IssuesController)
+          RedmineIssueFieldVisibility.hide_values do
+            super
           end
+        else
+          super
         end
       end
     end
   end
 end
 
-ApplicationController.include(RedmineIssueFieldVisibility::Patches::ApplicationControllerPatch)
+ApplicationController.prepend(RedmineIssueFieldVisibility::Patches::ApplicationControllerPatch)
