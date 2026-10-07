@@ -2,3 +2,4 @@
 bg:
   label_field: Поле
   issue_field_visibility_info: Изберете полетата, които да бъдат скрити за всяка роля.
+  issue_field_visibility_no_roles: Създайте роли, преди да използвате този плъгин.
