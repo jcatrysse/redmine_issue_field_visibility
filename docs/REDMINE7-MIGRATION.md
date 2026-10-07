@@ -21,10 +21,10 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Runs on Redmine 7 as is | DEELS (before this branch); on this branch: JA |
 | Upstream sync | UPSTREAM DOOD |
 | After sync | n.v.t. |
-| State of this branch (2026-10-06) | work list done; tests green on 7.0-stable-GEOxyz PostgreSQL 16 and MariaDB 10.11 (33 runs, 195 assertions each) and on 5.1-stable (32 runs, 160 assertions); e2e 7 scenarios + smoke + core green on both databases; OpenAI review: last round no findings |
+| State of this branch (2026-10-07) | work list and Jan's decisions done; every patch prepended; tests green on 7.0-stable-GEOxyz PostgreSQL 16: 61 runs, 352 assertions alone and with the 37 GEOxyz plugins; e2e smoke + core + 11 scenarios, 75 screenshots, 0 problems alone; combined 0 problems of this plugin (3 redmineup calendar images 404, other plugin); OpenAI review of the new commits: no findings |
 | Complexity (1 trivial .. 5 rewrite) | 3 |
 | Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz + latest 7.0-stable), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16 and MariaDB 10.11 |
-| Branch head when this file was written | `975af11` |
+| Branch head when this file was written | `975af11` (updated 2026-10-07 after `5d410a7`) |
 
 ## Already on this branch
 
@@ -151,6 +151,15 @@ Final (`dd49db6`, code unchanged since `b7e3ad8`):
 | e2e before, 5.1 with master | API: 9 leaks; version page shows 6:00 to reporter; description on the issue page; mail assignee header and description (`docs/e2e/before/*.md`) |
 | together with redmine_itil_priority, redmine_parent_child_filters, redmine_issue_todo_lists2, redmine_extended_api, redmine_view_issue_description, redmine_tint_issues (their redmine70-migration branch where it exists) | tests 31/31 green (role permission `view_issue_description` granted in a temporary setup hook: that plugin makes it mandatory to open an issue, core fixtures lack it); e2e all green after granting the same permission to the seeded roles. Static scan of 34 public GEOxyz plugins: none patches the readers, `render_to_body`, `Mailer#issue_add/issue_edit`, `Version#visible_fixed_issues` or `webhook_payload`; overlaps only on `IssueQuery` filters/columns and `column_content` (alias chains or prepend, compose fine) |
 | migrations | none in this plugin |
+| **2026-10-07, after Jan's decisions (`5d410a7`)** | |
+| tests, 7.0-stable-GEOxyz, PostgreSQL 16.15, plugin alone | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips (3 runs, different seeds) |
+| tests, same, with redmine_agile only | 50 runs, 296 assertions, 0 failures (at `8cc60b8`) |
+| tests, same, with the 37 GEOxyz plugins that have a `redmine70-migration` branch (38 plugins in all) | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips; `view_issue_description` granted in a temporary setup hook as before (redmine_view_issue_description makes it mandatory). Left out: the 10 plugins without a `redmine70-migration` branch (several do not boot on Redmine 7: redmine_datetime_custom_field needs redmine_base_deface, redmine_helpdesk_contact_sync a Zeitwerk error) and redmine-email-oauth (not a plugin) |
+| e2e alone, fresh PostgreSQL database | smoke 12, core 6, scenarios 11 (api, core-pages, issue-list, issue-page, mail, project-overview, settings-no-roles, settings, tooltip, version-page, webhooks) with 57 screenshots; 75 screenshots, 0 problems (`docs/e2e/`) |
+| e2e with redmine_agile, before `8cc60b8` | `redmine:load_default_data` already raises SystemStackError (`docs/e2e/with-agile/before.md`) |
+| e2e with redmine_agile, after | `core-pages`: all pages 200 (refusals 403) for the four users, agile board 200, 0 problems (`docs/e2e/with-agile/`) |
+| e2e with the 37 GEOxyz plugins | smoke 12, core 6, 11 scenarios, 76 screenshots (`docs/e2e/combined/`). Problems: `issue-page` 1 (redmine_itil_priority replaces the priority select by urgency/impact; the scenario now accepts either, re-run 0 problems), `tooltip` 12 x 404 on `/assets/plugin_assets/redmineup/bullet_*.png` on the calendar (redmineup gem `calendars.css`, already in the plans of agile, contacts and people; not this plugin). Everything this plugin does: 0 problems |
+| OpenAI review 2026-10-07 | `docs/reviews/openai-2026-10-07-5d410a7.md` (`0c661cd..5d410a7`): no findings |
 | own review | see "Own review notes" |
 | OpenAI review | 3 rounds: `docs/reviews/openai-2026-10-06-ffe1644.md` (1 fixed, 1 not a bug), `-bf9a550.md` (not a bug, proven by a new PDF test), `-0b94037.md` (1 hardening, 1 not a bug), `-6657698.md`: no findings |
 
@@ -201,7 +210,10 @@ plugins that have a `redmine70-migration` branch.
 
 ## What is left
 
-- Nothing of the work list. Not testable here: none (no IdP/LDAP/OAuth/mail server involved in this plugin; mail checked through file delivery, webhooks through a local receiver).
+- Nothing of the work list or of Jan's decisions. Not testable here: none (no IdP/LDAP/OAuth/mail server involved in this plugin; mail checked through file delivery, webhooks through a local receiver).
+- Known, by decision 1/2 not done: gantt and calendar bars (dates), the gantt subject column's assignee avatar, activity and search (description) still show hidden fields; other plugins' views are not covered either (the redmine_agile board cards show the assignee to a role with agile permissions that hides it).
+- Notes for other plugins found here: redmineup gem `calendars.css` images 404 under Propshaft; redmine_view_issue_description still uses `alias_method` on `Query#columns` and `#available_block_columns` (`*_with_ifv`, a name that looks like this plugin's but is not); the redmineup gem's `up_acts_as_taggable` chains `Issue#reload` with `alias_method`, so no plugin loaded before redmineup_tags can prepend `Issue#reload`.
+- Cost note: the project overview checks the hidden fields per subproject (one roles lookup each) when subprojects are shown and the user is not an admin; not measured on GEOxyz's hierarchy.
 
 ## How to test
 

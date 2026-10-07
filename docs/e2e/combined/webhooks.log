@@ -1,0 +1,3 @@
+receiver http://192.0.2.2:4567, payloads: /reporter, /manager
+reporter: assigned_to=null category=null start_date=null due_date=null estimated_hours=null total_estimated_hours=null description=null; journal details: []
+manager:  estimated_hours=7 assigned_to=Manager E2E category=E2E category description="Secret description of the assigned issue."; journal details: [estimated_hours]

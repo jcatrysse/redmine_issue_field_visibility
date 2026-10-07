@@ -1,6 +1,6 @@
 # smoke
 
-Run 2026-10-06T20:30:43.354Z against http://127.0.0.1:3000.
+Run 2026-10-07T20:11:28.544Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
@@ -15,3 +15,4 @@ Run 2026-10-06T20:30:43.354Z against http://127.0.0.1:3000.
 | ![](smoke-09.png) | admin | `/admin` | /admin (HTTP 200) |
 | ![](smoke-10.png) | admin | `/admin/plugins` | /admin/plugins (HTTP 200) |
 | ![](smoke-11.png) | admin | `/settings/plugin/redmine_issue_field_visibility` | /settings/plugin/redmine_issue_field_visibility (HTTP 200) |
+| ![](smoke-12.png) | admin | `/projects/1` | /projects/1 (HTTP 200) |
