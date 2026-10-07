@@ -27,14 +27,15 @@ module RedmineIssueFieldVisibility
           hidden_core_fields.include?("#{name}_id")
       end
 
+      # Cached per user and project. Issue#reload is not patched to clear the
+      # cache: the redmineup gem (redmineup_tags) sets up an alias_method chain
+      # on it after this plugin is loaded, which recurses into a prepended
+      # reload. A reload does not change the settings or the user's roles; a
+      # changed project gets its own cache entry.
       def hidden_core_fields
         user = @user_for_hidden_core_fields || User.current
         @hidden_core_fields ||= {}
         @hidden_core_fields[[user, project_id]] ||= RedmineIssueFieldVisibility::hidden_core_fields user, project
-      end
-
-      def reload(*args)
-        super.tap { @hidden_core_fields = nil }
       end
 
       def with_hidden_core_fields_for_user(user, &block)

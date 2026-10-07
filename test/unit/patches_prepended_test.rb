@@ -6,13 +6,13 @@ require File.expand_path('../../test_helper', __FILE__)
 # (SystemStackError on every issue query with redmine_agile installed), so every
 # patch of this plugin is prepended.
 class PatchesPrependedTest < ActiveSupport::TestCase
-  fixtures :projects, :users, :roles, :members, :member_roles, :trackers,
+  fixtures :projects, :users, :roles, :members, :member_roles, :trackers, :issues,
            :projects_trackers, :enabled_modules, :issue_statuses, :enumerations
 
   PATCHES = {
     ApplicationController => [RedmineIssueFieldVisibility::Patches::ApplicationControllerPatch, %i(render_to_body)],
     Issue => [RedmineIssueFieldVisibility::Patches::IssuePatch,
-              %i(disabled_core_fields reload total_estimated_hours estimated_remaining_hours webhook_payload
+              %i(disabled_core_fields total_estimated_hours estimated_remaining_hours webhook_payload
                  assigned_to assigned_to_id description estimated_hours start_date priority)],
     IssueQuery => [RedmineIssueFieldVisibility::Patches::IssueQueryPatch, %i(initialize_available_filters available_columns)],
     IssuesHelper => [RedmineIssueFieldVisibility::Patches::IssuesHelperPatch, %i(email_issue_attributes)],
@@ -35,7 +35,8 @@ class PatchesPrependedTest < ActiveSupport::TestCase
     end
 
     test "#{base} has no alias_method chain of this plugin" do
-      chained = (base.instance_methods + base.private_instance_methods).grep(/_(with|without)_ifv\z/)
+      defined = base.instance_methods + base.private_instance_methods
+      chained = methods.flat_map { |m| [:"#{m}_with_ifv", :"#{m}_without_ifv"] } & defined
       assert_empty chained
     end
   end
@@ -65,6 +66,24 @@ class PatchesPrependedTest < ActiveSupport::TestCase
       assert_nil query.available_filters['estimated_hours']
       assert query.instance_variable_get(:@other_plugin_columns_called)
       assert query.instance_variable_get(:@other_plugin_filters_called)
+    end
+  end
+
+  # The redmineup gem (acts_as_taggable, called on Issue by redmineup_tags,
+  # which loads after this plugin) aliases Issue#reload in Issue itself.
+  test "Issue#reload survives an alias_method chain set up after the plugin" do
+    own = Issue.instance_method(:reload)
+    own = own.super_method until own.owner == Issue
+    Issue.class_eval do
+      alias_method :reload_without_tag_list_test, :reload
+      define_method(:reload) { |*args| reload_without_tag_list_test(*args) }
+    end
+    issue = Issue.find(1)
+    assert_nothing_raised { assert_equal issue, issue.reload }
+  ensure
+    Issue.class_eval do
+      define_method(:reload, own)
+      remove_method :reload_without_tag_list_test
     end
   end
 end
