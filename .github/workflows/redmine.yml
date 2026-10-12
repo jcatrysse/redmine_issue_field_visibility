@@ -1,14 +1,7 @@
 name: Test with Redmine
 
 on:
-  push:
-    branches:
-      - master
-      - planio/4.2
-  pull_request:
-    branches:
-      - master
-      - planio/4.2
+  workflow_dispatch:
 
 jobs:
   test:
