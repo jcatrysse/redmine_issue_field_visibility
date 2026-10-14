@@ -49,4 +49,28 @@ class RedmineIssueFieldVisibilityCalendarsControllerTest < Redmine::ControllerTe
       assert_no_match /Start date|Due date/, text
     end
   end
+
+  # 31 entries of one issue, each a fresh instance as calendar_events_daily
+  # loads them: one visibility decision for the whole calendar
+  def test_tooltips_should_decide_the_hidden_fields_once_per_project
+    with_settings('plugin_redmine_issue_field_visibility' => {
+      'hiddenfields' => { '1' => { 'assigned_to_id' => '1' } }
+    }) do
+      get :show, params: { project_id: 1 }
+      assert_response :success
+      User.current = User.find(2)
+      view = @controller.view_context
+      calls = 0
+      counting = Module.new do
+        define_method(:hidden_core_fields) { |*args| calls += 1; super(*args) }
+      end
+      RedmineIssueFieldVisibility.singleton_class.prepend(counting)
+      tips = Array.new(31) { view.render_issue_tooltip(Issue.find(1)) }
+      assert_equal 1, calls
+      assert tips.all? { |tip| tip.include?('Status') && !tip.include?('Assignee') }
+    ensure
+      counting&.send(:define_method, :hidden_core_fields) { |*args| super(*args) }
+    end
+  end
 end
+

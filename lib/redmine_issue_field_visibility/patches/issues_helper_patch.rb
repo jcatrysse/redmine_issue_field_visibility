@@ -15,7 +15,7 @@ module RedmineIssueFieldVisibility
       # IssuesHelper#render_issue_tooltip (Redmine 7.0), which is called
       # unchanged when none of its fields is hidden.
       def render_issue_tooltip(issue)
-        hidden = TOOLTIP_FIELDS & issue.hidden_core_fields
+        hidden = hidden_tooltip_fields(issue)
         return super if hidden.empty?
 
         lines = [
@@ -35,6 +35,16 @@ module RedmineIssueFieldVisibility
           lines << "<strong>#{l(:field_priority)}</strong>: #{h(issue.priority.name)}".html_safe
         end
         link_to_issue(issue) + "<br /><br />".html_safe + safe_join(lines, "<br />".html_safe)
+      end
+
+      # The hidden fields depend on the user and the issue's project only. A
+      # calendar renders thousands of tooltips (calendar_events_daily repeats
+      # an issue on every day it spans), so the view decides once per user
+      # and project for the request.
+      def hidden_tooltip_fields(issue)
+        @hidden_tooltip_fields ||= {}
+        @hidden_tooltip_fields[[User.current.id, issue.project_id]] ||=
+          TOOLTIP_FIELDS & RedmineIssueFieldVisibility.hidden_core_fields(User.current, issue.project)
       end
     end
   end
