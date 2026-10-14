@@ -74,10 +74,12 @@ if [ "$adapter" = mysql2 ] && command -v mysql >/dev/null 2>&1; then
     mysql -h "$host" -P "$port" -uroot -p"$password" -e "$grant" 2>/dev/null || true
 fi
 
+# Under the server environment, not "default": Redmine applies "default" to the
+# test environment as well, where the tests expect ActionMailer's :test delivery.
 if [ ! -f "$REDMINE_DIR/config/configuration.yml" ]; then
   mkdir -p "$REDMINE_DIR/tmp/mails"
   cat > "$REDMINE_DIR/config/configuration.yml" <<YAML
-default:
+$RMP_SERVER_ENV:
   email_delivery:
     delivery_method: :file
     file_settings:
