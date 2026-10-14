@@ -22,7 +22,7 @@ class RedmineIssueFieldVisibilityCalendarsControllerTest < Redmine::ControllerTe
   end
 
   def tooltip
-    css_select('div.issue span.tip').detect { |tip| tip.text.include?('#1') }
+    css_select('div.issue span.tip').detect { |tip| tip.text.include?('#1:') } # not #10, #11 ...
   end
 
   def test_tooltip_should_show_the_fields

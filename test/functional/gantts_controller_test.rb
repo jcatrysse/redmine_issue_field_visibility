@@ -23,7 +23,7 @@ class RedmineIssueFieldVisibilityGanttsControllerTest < Redmine::ControllerTest
   end
 
   def tooltip
-    css_select('div.tooltip span.tip').detect { |tip| tip.text.include?('#1') }
+    css_select('div.tooltip span.tip').detect { |tip| tip.text.include?('#1:') } # not #10, #11 ...
   end
 
   def test_tooltip_should_show_the_fields
