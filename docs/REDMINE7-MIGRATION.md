@@ -160,6 +160,10 @@ Final (`dd49db6`, code unchanged since `b7e3ad8`):
 | e2e with redmine_agile, after | `core-pages`: all pages 200 (refusals 403) for the four users, agile board 200, 0 problems (`docs/e2e/with-agile/`) |
 | e2e with the 37 GEOxyz plugins | smoke 12, core 6, 11 scenarios, 76 screenshots (`docs/e2e/combined/`). Problems: `issue-page` 1 (redmine_itil_priority replaces the priority select by urgency/impact; the scenario now accepts either, re-run 0 problems), `tooltip` 12 x 404 on `/assets/plugin_assets/redmineup/bullet_*.png` on the calendar (redmineup gem `calendars.css`, already in the plans of agile, contacts and people; not this plugin). Everything this plugin does: 0 problems |
 | OpenAI review 2026-10-07 | `docs/reviews/openai-2026-10-07-5d410a7.md` (`0c661cd..5d410a7`): no findings |
+| **2026-10-14, re-check against core `1d8c2a3`** (7.0-stable-GEOxyz rewritten upstream; finding 16 of redmine_view_issue_description, already fixed here by `8cc60b8`) | |
+| tests, plugin alone, PostgreSQL 16 | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips |
+| tests, with redmine_agile (redmine70-migration) | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips; `rails runner 'IssueQuery.new.available_filters'` answers 46 filters, ancestors `[IssueFieldVisibility patch, RedmineAgile patch, IssueQuery]` |
+| e2e `core-pages.mjs` with redmine_agile, fresh database | issue list, bulk edit, issue page, version page, Project > Settings 200 for admin and manager, refusals 403, agile board 200; 10 screenshots, 0 problems |
 | own review | see "Own review notes" |
 | OpenAI review | 3 rounds: `docs/reviews/openai-2026-10-06-ffe1644.md` (1 fixed, 1 not a bug), `-bf9a550.md` (not a bug, proven by a new PDF test), `-0b94037.md` (1 hardening, 1 not a bug), `-6657698.md`: no findings |
 
