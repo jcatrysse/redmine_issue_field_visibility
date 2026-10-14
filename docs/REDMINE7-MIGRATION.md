@@ -164,6 +164,9 @@ Final (`dd49db6`, code unchanged since `b7e3ad8`):
 | tests, plugin alone, PostgreSQL 16 | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips |
 | tests, with redmine_agile (redmine70-migration) | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips; `rails runner 'IssueQuery.new.available_filters'` answers 46 filters, ancestors `[IssueFieldVisibility patch, RedmineAgile patch, IssueQuery]` |
 | e2e `core-pages.mjs` with redmine_agile, fresh database | issue list, bulk edit, issue page, version page, Project > Settings 200 for admin and manager, refusals 403, agile board 200; 10 screenshots, 0 problems |
+| **Coordinator's combined run 2026-10-14** (44 GEOxyz plugins, core `1d8c2a3`, head `aa761fb`) | 61 runs, 13 failures, all test setup, none in this plugin. 12: redmine_view_issue_description makes `view_issue_description` mandatory (API 403); `test_helper.rb` now grants it when that plugin is installed (`e528513`). 1: `CalendarsControllerTest#test_tooltip_should_show_the_fields` picked Bug #10 (no assignee) as "the tooltip of #1" once calendar_events_daily adds the issues spanning the month (reproduced with it, gone without it); calendar and gantt tests now match `#1:` (`e528513`) |
+| tests, same 44 plugins here, after `e528513` | 61 runs, 352 assertions, 0 failures, 0 errors, 0 skips (twice); alone 61 / 352 / 0 |
+| harness H6 | `start_server.sh` wrote the file mail delivery under `default:` in `config/configuration.yml`, which the test environment also reads; now under `$RMP_SERVER_ENV` (`29996cc`). Checked: e2e `mail.mjs` 0 problems, test environment `delivery_method` = test, suite green |
 | own review | see "Own review notes" |
 | OpenAI review | 3 rounds: `docs/reviews/openai-2026-10-06-ffe1644.md` (1 fixed, 1 not a bug), `-bf9a550.md` (not a bug, proven by a new PDF test), `-0b94037.md` (1 hardening, 1 not a bug), `-6657698.md`: no findings |
 
